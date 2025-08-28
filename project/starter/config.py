@@ -61,6 +61,6 @@ class Settings:
 def load_settings(path="config.yaml") -> Settings:
     with open(path) as f:
         y = yaml.safe_load(f)
-    settings = Settings(**y["pharmascan"])
+    settings = Settings(**y["udaciscan"])
     os.environ["ENTREZ_EMAIL"] = settings.email
     return settings

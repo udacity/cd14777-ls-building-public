@@ -1,4 +1,4 @@
-pharmascan:
+udaciscan:
   email: "student@udacity.com" # your email address (needed as identifier for NCBI Entrez queries)
 
   # --- Core agent settings ---
