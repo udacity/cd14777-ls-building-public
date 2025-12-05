@@ -561,8 +561,13 @@ def query_clinvar(variant: str) -> Dict[str, Any]:
     f.close()
 
     # ClinVar XML is verbose; pull common fields
-    doc = x.get("ClinVarSet", x).get("ClinVarSet", x)  # tolerate shape
-    # Fallback parsing from VariationArchive-like layout
+    # Handle different XML response formats
+    if hasattr(x, 'get'):
+        doc = x.get("ClinVarSet", x).get("ClinVarSet", x)  # tolerate shape
+    else:
+        # Handle ListElement responses - use esummary instead for cleaner parsing
+        doc = None
+    
     title = None
     significance = None
     review_status = None
@@ -572,33 +577,89 @@ def query_clinvar(variant: str) -> Dict[str, Any]:
     pubmed_pmids: List[str] = []
     accessions: Dict[str, List[str]] = {"RCV": [], "VCV": []}
 
-    # Walk nested structure defensively
+    # Walk nested structure defensively - use esummary with validation disabled
     try:
-        # DocumentSummary fields are easier via esummary, but we already have XML
+        # Use esummary for cleaner structured data
         summ = _entrez_call("esummary", db="clinvar", id=uid)
-        summ_rec = Entrez.read(summ)
+        summ_rec = Entrez.read(summ, validate=False)  # Disable DTD validation
         summ.close()
-        ds = summ_rec["DocumentSummarySet"]["DocumentSummary"][0]
-        title = ds.get("title")
-        sig = ds.get("clinical_significance", {})
-        significance = sig.get("description")
-        review_status = sig.get("review_status")
-        conditions = [t.get("trait_name") for t in ds.get("trait_set", []) if t.get("trait_name")]
-        genes = ds.get("genes", [])
-        gene = genes[0]["symbol"] if genes else None
-        acc = ds.get("accession")
-        if acc:
-            if acc.startswith("RCV"):
-                accessions["RCV"].append(acc)
-            if acc.startswith("VCV"):
-                accessions["VCV"].append(acc)
-        # HGVS
-        hgvs = ds.get("hgvs_expressions", {}) or {}
-        # ClinVar returns lists keyed by type (genomic, coding, protein)
-        for v in hgvs.values():
-            if isinstance(v, list):
-                hgvs_list.extend([str(i) for i in v])
-    except Exception:
+        
+        if "DocumentSummarySet" in summ_rec:
+            ds = summ_rec["DocumentSummarySet"]["DocumentSummary"][0]
+            
+            # Extract title
+            title = ds.get("title")
+            
+            # Extract clinical significance - try multiple fields due to ClinVar schema changes
+            significance = None
+            review_status = None
+            
+            # Try germline_classification (newer format)
+            germline = ds.get("germline_classification")
+            if germline and isinstance(germline, dict):
+                significance = germline.get("description") or germline.get("last_evaluated")
+                review_status = germline.get("review_status")
+            
+            # Try clinical_significance (older format)
+            if not significance:
+                clin_sig = ds.get("clinical_significance")
+                if isinstance(clin_sig, dict):
+                    significance = clin_sig.get("description")
+                    review_status = clin_sig.get("review_status")
+                elif isinstance(clin_sig, str):
+                    significance = clin_sig
+            
+            # Fallback to direct review_status field
+            if not review_status:
+                review_status = ds.get("review_status")
+            
+            # Extract conditions/traits - check both trait_set and germline_classification.trait_set
+            conditions = []
+            
+            # Check top-level trait_set
+            trait_set = ds.get("trait_set", [])
+            if isinstance(trait_set, list):
+                conditions.extend([t.get("trait_name") for t in trait_set if isinstance(t, dict) and t.get("trait_name")])
+            
+            # Check germline_classification.trait_set (newer location)
+            if germline and isinstance(germline, dict):
+                germline_traits = germline.get("trait_set", [])
+                if isinstance(germline_traits, list):
+                    conditions.extend([t.get("trait_name") for t in germline_traits if isinstance(t, dict) and t.get("trait_name")])
+            
+            # Remove duplicates
+            conditions = list(set(filter(None, conditions)))
+            
+            # Extract genes
+            genes = ds.get("genes", [])
+            if isinstance(genes, list) and genes:
+                gene_info = genes[0]
+                if isinstance(gene_info, dict):
+                    gene = gene_info.get("symbol")
+                else:
+                    gene = None
+            else:
+                gene = None
+            
+            # Extract accession
+            acc = ds.get("accession")
+            if acc:
+                if str(acc).startswith("RCV"):
+                    accessions["RCV"].append(str(acc))
+                elif str(acc).startswith("VCV"):
+                    accessions["VCV"].append(str(acc))
+            
+            # Extract HGVS expressions
+            hgvs = ds.get("hgvs_expressions", {})
+            if isinstance(hgvs, dict):
+                for v in hgvs.values():
+                    if isinstance(v, list):
+                        hgvs_list.extend([str(i) for i in v])
+                    elif v:
+                        hgvs_list.append(str(v))
+                        
+    except Exception as e:
+        # If esummary fails, significance will remain None
         pass
 
     # PubMed links via ELink
@@ -613,25 +674,48 @@ def query_clinvar(variant: str) -> Dict[str, Any]:
     except Exception:
         pass
 
-    # Allele frequencies via Variation Services if rsID
+    # Extract allele frequencies from ClinVar variation_set (preferred) or Variation Services
     allele_freqs: Dict[str, float] = {}
-    if re.match(r"^rs\d+$", variant, re.IGNORECASE):
+    
+    # Try extracting from ClinVar esummary first (more reliable)
+    try:
+        if "DocumentSummarySet" in summ_rec:
+            ds = summ_rec["DocumentSummarySet"]["DocumentSummary"][0]
+            variation_set = ds.get("variation_set", [])
+            
+            if isinstance(variation_set, list):
+                for variation in variation_set:
+                    if isinstance(variation, dict):
+                        allele_freq_set = variation.get("allele_freq_set", [])
+                        if isinstance(allele_freq_set, list):
+                            for freq_data in allele_freq_set:
+                                if isinstance(freq_data, dict):
+                                    source = freq_data.get("source", "")
+                                    value = freq_data.get("value", "")
+                                    if value:
+                                        try:
+                                            freq_val = float(value)
+                                            # Keep highest frequency across all sources/variants
+                                            key = f"{source}_{variation.get('variation_name', 'unknown')}"
+                                            allele_freqs[key] = max(freq_val, allele_freqs.get(key, 0.0))
+                                        except (ValueError, TypeError):
+                                            pass
+    except Exception:
+        pass
+    
+    # Fallback to Variation Services if no frequencies found and we have an rsID
+    if not allele_freqs and re.match(r"^rs\d+$", variant, re.IGNORECASE):
         try:
             vs = _http_get(f"https://api.ncbi.nlm.nih.gov/variation/v0/refsnp/{variant.lower()[2:]}")
             j = vs.json()
             # Aggregate observed allele frequencies if present
-            # The JSON schema can vary; pick a few common places
             for ann in j.get("primary_snapshot_data", {}).get("allele_annotations", []):
                 for fset in ann.get("frequency", []):
                     for obs in fset.get("study_results", []):
                         alt = obs.get("allele" ) or obs.get("x_allele")
-                        af = obs.get("allele_count")
-                        # Many schemas give total/alt; we approximate if direct AF present
                         if "allele_freq" in obs:
-                            allele_freqs[str(alt)] = max(
-                                float(obs.get("allele_freq") or 0.0),
-                                float(allele_freqs.get(str(alt), 0.0)),
-                            )
+                            freq_val = float(obs.get("allele_freq") or 0.0)
+                            allele_freqs[f"vs_{alt}"] = max(freq_val, allele_freqs.get(f"vs_{alt}", 0.0))
         except Exception:
             pass
 

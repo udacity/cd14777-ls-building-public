@@ -1,0 +1,29 @@
+90000001	Title	[SYNTHETIC] miR-34a suppresses MET signaling and inhibits gastric cancer growth.
+90000001	Abstract	[SYNTHETIC DATA] In gastric cancer cells, the microRNA (miRNA) miR-34a reduced MET expression and caused growth inhibition and apoptosis. Dual-luciferase reporter assay confirmed direct binding of miR-34a to the MET 3'UTR, and Western blot showed decreased MET protein. Overexpression of miR-34a impaired colony formation and reduced tumor growth in xenograft-like assays.
+90000001	T1	miRNA	miR-34a
+90000001	T2	Target_gene	MET
+
+90000002	Title	[SYNTHETIC] miR-200c targets ZEB1 to impede epithelial–mesenchymal transition in gastric carcinoma.
+90000002	Abstract	[SYNTHETIC DATA] miR-200c restoration in gastric cancer lines led to growth inhibition and reduced migration. A luciferase reporter with the ZEB1 3'UTR verified direct targeting by the miRNA. qPCR and immunoblotting showed downregulation of ZEB1 and re-expression of E-cadherin following miR-200c transfection.
+90000002	T1	miRNA	miR-200c
+90000002	T2	Target_gene	ZEB1
+
+90000003	Title	[SYNTHETIC] miR-148a attenuates DNMT1 and curbs gastric cancer cell proliferation.
+90000003	Abstract	[SYNTHETIC DATA] miR-148a was decreased in primary gastric tumors; ectopic expression produced marked growth inhibition and S-phase arrest. A dual-luciferase reporter assay demonstrated that miR-148a directly binds the DNMT1 3'UTR. Reduced DNMT1 protein correlated with promoter hypomethylation of tumor suppressor genes.
+90000003	T1	miRNA	miR-148a
+90000003	T2	Target_gene	DNMT1
+
+90000004	Title	[SYNTHETIC] miR-145 represses MYC signaling and limits gastric cancer growth.
+90000004	Abstract	[SYNTHETIC DATA] Introduction of miR-145 into gastric cancer cells caused growth inhibition and decreased BrdU incorporation. Luciferase reporter assays using wild-type and mutant MYC 3'UTRs confirmed direct regulation by the miRNA. Downstream, cyclin expression was reduced and apoptosis increased.
+90000004	T1	miRNA	miR-145
+90000004	T2	Target_gene	MYC
+
+90000005	Title	[SYNTHETIC] miR-218 targets ROBO1 to inhibit invasion and growth of gastric cancer cells.
+90000005	Abstract	[SYNTHETIC DATA] Forced expression of the microRNA miR-218 produced growth inhibition and diminished invasive capacity of gastric carcinoma cells. A luciferase reporter assay verified the direct interaction between miR-218 and the ROBO1 3'UTR. Silencing ROBO1 phenocopied the miR-218 effects.
+90000005	T1	miRNA	miR-218
+90000005	T2	Target_gene	ROBO1
+
+90000006	Title	[SYNTHETIC] miR-375 downregulates PDK1 and suppresses gastric cancer growth.
+90000006	Abstract	[SYNTHETIC DATA] Reintroduction of miR-375 caused growth inhibition and reduced AKT pathway activity in gastric cancer cells. Direct targeting of PDK1 by the miRNA was validated via luciferase reporter assays and Western blotting. Combination with chemotherapy enhanced apoptotic responses.
+90000006	T1	miRNA	miR-375
+90000006	T2	Target_gene	PDK1
